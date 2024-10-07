@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linear Regression Calculator with Solution Steps</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #000;
+            padding: 10px;
+            text-align: center;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            padding: 5px;
+        }
+
+        button {
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        canvas {
+            margin-top: 20px;
+        }
+
+        /* Style the solution steps */
+        .solution-step {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .solution-step h3 {
+            text-align: left;
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .solution-step p {
+            margin: 5px 0;
+            line-height: 1.6;
+        }
+
+        .solution-step strong {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .solution-step .equation {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: "Courier New", Courier, monospace;
+        }
+
+        .solution-step .highlight {
+            background-color: #ffffcc;
+            padding: 5px;
+            border-radius: 5px;
+        }
+
+        .solution-step .step-title {
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 1.2em;
+            color: #333;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Linear Regression Calculator with Solution Steps</h1>
+
+    <div class="container">
+        <table>
+            <thead>
+                <tr>
+                    <th>x</th>
+                    <th>y</th>
+                    <th>x * y</th>
+                    <th>Predicted y (y = bx + a)</th>
+                </tr>
+            </thead>
+            <tbody id="dataTable"></tbody>
+        </table>
+
+        <br />
+
+        <button onclick="addRow()">Add Data Row</button>
+        <button onclick="calculate()">Calculate</button>
+
+        <h2>Results</h2>
+        <table>
+            <tr><td>Σx</td><td id="sumX"></td></tr>
+            <tr><td>Σy</td><td id="sumY"></td></tr>
+            <tr><td>Σxy</td><td id="sumXY"></td></tr>
+            <tr><td>Σx²</td><td id="sumX2"></td></tr>
+            <tr><td>Σy²</td><td id="sumY2"></td></tr>
+            <tr><td>n (sample size)</td><td id="n"></td></tr>
+            <tr><td>Slope (b)</td><td id="slopeB"></td></tr>
+            <tr><td>Intercept (a)</td><td id="interceptA"></td></tr>
+        </table>
+
+        <!-- Chart container -->
+        <canvas id="regressionChart" width="400" height="400"></canvas>
+
+        <!-- Section to show the solution steps -->
+        <div id="solutionSteps" class="solution-step"></div>
+    </div>
+
+    <script>
+        // Create an empty chart on page load
+        const ctx = document.getElementById('regressionChart').getContext('2d');
+        let regressionChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Original Data Points',
+                        data: [],
+                        borderColor: 'blue',
+                        backgroundColor: 'blue',
+                        showLine: false,
+                    },
+                    {
+                        label: 'Regression Line',
+                        data: [],
+                        borderColor: 'red',
+                        backgroundColor: 'transparent',
+                        type: 'line',
+                        fill: false,
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom',
+                        title: {
+                            display: true,
+                            text: 'x',
+                        },
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'y',
+                        },
+                    }
+                }
+            }
+        });
+
+        // Function to add a new row to the table for x and y input
+        function addRow() {
+            const table = document.getElementById('dataTable');
+            const row = table.insertRow();
+
+            const cell1 = row.insertCell(0);
+            const cell2 = row.insertCell(1);
+            const cell3 = row.insertCell(2);
+            const cell4 = row.insertCell(3);
+
+            cell1.innerHTML = '<input type="number" class="x-value" />';
+            cell2.innerHTML = '<input type="number" class="y-value" />';
+            cell3.innerHTML = '0'; // Placeholder for x*y, which will be calculated later
+            cell4.innerHTML = '0'; // Placeholder for predicted y, calculated later
+        }
+
+        // Function to calculate Σx, Σy, Σxy, Σx², Σy², and n, and show the steps
+        function calculate() {
+            const xValues = document.querySelectorAll('.x-value');
+            const yValues = document.querySelectorAll('.y-value');
+
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0, n = xValues.length;
+
+            let originalDataPoints = [];  // Array to hold original data for chart
+
+            for (let i = 0; i < n; i++) {
+                const x = parseFloat(xValues[i].value);
+                const y = parseFloat(yValues[i].value);
+                const xy = x * y;
+
+                sumX += x;
+                sumY += y;
+                sumXY += xy;
+                sumX2 += x * x;
+                sumY2 += y * y;
+
+                // Update the x*y cell in the table
+                const xyCell = xValues[i].parentNode.nextElementSibling.nextElementSibling;
+                xyCell.innerHTML = xy.toFixed(2);
+
+                // Add original data points to array for chart
+                originalDataPoints.push({ x: x, y: y });
+            }
+
+            // Calculate slope (b) and intercept (a)
+            const b = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const a = (sumY - b * sumX) / n;
+
+            // Update results table
+            document.getElementById('sumX').innerText = sumX.toFixed(2);
+            document.getElementById('sumY').innerText = sumY.toFixed(2);
+            document.getElementById('sumXY').innerText = sumXY.toFixed(2);
+            document.getElementById('sumX2').innerText = sumX2.toFixed(2);
+            document.getElementById('sumY2').innerText = sumY2.toFixed(2);
+            document.getElementById('n').innerText = n;
+            document.getElementById('slopeB').innerText = b.toFixed(2);
+            document.getElementById('interceptA').innerText = a.toFixed(2);
+
+            let regressionDataPoints = [];  // Array for regression line data
+
+            // Calculate and display the predicted y for each x
+            for (let i = 0; i < n; i++) {
+                const x = parseFloat(xValues[i].value);
+                const predictedY = b * x + a;
+
+                // Update the predicted y cell in the table
+                const predictedYCell = xValues[i].parentNode.nextElementSibling.nextElementSibling.nextElementSibling;
+                predictedYCell.innerHTML = predictedY.toFixed(2);
+
+                // Add regression line data points for chart
+                regressionDataPoints.push({ x: x, y: predictedY });
+            }
+
+            // Update the chart
+            regressionChart.data.datasets[0].data = originalDataPoints;
+            regressionChart.data.datasets[1].data = regressionDataPoints;
+            regressionChart.update();
+
+            // Show solution steps
+            showSolutionSteps(sumX, sumY, sumXY, sumX2, n, b, a);
+        }
+
+        // Function to show the solution steps
+        function showSolutionSteps(sumX, sumY, sumXY, sumX2, n, b, a) {
+            const solutionSteps = document.getElementById('solutionSteps');
+            solutionSteps.innerHTML = `
+                <h3>Step-by-Step Solution</h3>
+                <p class="step-title">1. Calculate the Sums:</p>
+                <p><strong>Σx</strong> = <span class="highlight">${sumX.toFixed(2)}</span></p>
+                <p><strong>Σy</strong> = <span class="highlight">${sumY.toFixed(2)}</span></p>
+                <p><strong>Σxy</strong> = <span class="highlight">${sumXY.toFixed(2)}</span></p>
+                <p><strong>Σx²</strong> = <span class="highlight">${sumX2.toFixed(2)}</span></p>
+                <p><strong>n (sample size)</strong> = <span class="highlight">${n}</span></p>
+
+                <p class="step-title">2. Calculate the Slope (b):</p>
+                <div class="equation">b = (n * Σxy - Σx * Σy) / (n * Σx² - Σx²)</div>
+                <p>b = (${n} * ${sumXY.toFixed(2)} - ${sumX.toFixed(2)} * ${sumY.toFixed(2)}) / (${n} * ${sumX2.toFixed(2)} - (${sumX.toFixed(2)})²)</p>
+                <p><strong>b</strong> = <span class="highlight">${b.toFixed(2)}</span></p>
+
+                <p class="step-title">3. Calculate the Intercept (a):</p>
+                <div class="equation">a = (Σy - b * Σx) / n</div>
+                <p>a = (${sumY.toFixed(2)} - ${b.toFixed(2)} * ${sumX.toFixed(2)}) / ${n}</p>
+                <p><strong>a</strong> = <span class="highlight">${a.toFixed(2)}</span></p>
+
+                <p class="step-title">4. Final Linear Regression Equation:</p>
+                <div class="equation"><strong>y = ${b.toFixed(2)}x + ${a.toFixed(2)}</strong></div>
+
+                <p class="step-title">5. Predicted y Values for Each x:</p>
+                <div class="equation">For each x, y = ${b.toFixed(2)}x + ${a.toFixed(2)}</div>
+                ${generatePredictedYSteps(b, a)}
+            `;
+        }
+
+        // Function to generate predicted y values explanation
+        function generatePredictedYSteps(b, a) {
+            const xValues = document.querySelectorAll('.x-value');
+            let stepsHTML = '<ul>';
+
+            for (let i = 0; i < xValues.length; i++) {
+                const x = parseFloat(xValues[i].value);
+                const predictedY = b * x + a;
+                stepsHTML += `
+                    <li>For x = ${x.toFixed(2)}: y = ${b.toFixed(2)} * ${x.toFixed(2)} + ${a.toFixed(2)} = <strong>${predictedY.toFixed(2)}</strong></li>
+                `;
+            }
+
+            stepsHTML += '</ul>';
+            return stepsHTML;
+        }
+    </script>
+
+</body>
+</html>
